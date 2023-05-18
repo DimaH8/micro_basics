@@ -2,6 +2,9 @@ package org.micro_basics;
 
 import com.hazelcast.client.HazelcastClient;
 import com.hazelcast.client.config.ClientConfig;
+import com.hazelcast.config.Config;
+import com.hazelcast.config.MapConfig;
+import com.hazelcast.config.NetworkConfig;
 import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
 import java.util.UUID;
@@ -16,16 +19,17 @@ public class Main {
         // IntelliJ IDEA suggests fixing it.
         System.out.println("Lab2 Hazelcast!");
 
-        ClientConfig config = new ClientConfig();
-        config.getNetworkConfig().addAddress("127.0.0.1" + ":" + 5701);
-        HazelcastInstance hzInstance = HazelcastClient.newHazelcastClient(config);
+        ClientConfig clientConfig = new ClientConfig();
+        clientConfig.getNetworkConfig().addAddress("127.0.0.1:5701");
+        HazelcastInstance hzInstance = HazelcastClient.newHazelcastClient(clientConfig);
 
-        Map<Integer, String> hzMap = hzInstance.getMap( "uuids-test" );
+        Map<Integer, String> hzMap = hzInstance.getMap( "default" );
         for (int i = 0; i < 1000; i++) {
             UUID uuid=UUID.randomUUID();
             hzMap.put(i, uuid.toString());
         }
         System.out.println("1000 test keys loaded");
+
         hzInstance.shutdown();
     }
 }

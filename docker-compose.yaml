@@ -6,11 +6,12 @@ services:
     container_name: hazelcast1
     environment:
       - LOGGING_LEVEL=INFO
+      - JAVA_OPTS=-Dhazelcast.config=/opt/hazelcast/config_ext/hazelcast.yaml
     networks:
       hazelcast-network:
         ipv4_address: 192.168.0.11
     volumes:
-      - ./hazelcast.yaml:/opt/hazelcast/hazelcast.yaml
+      - ./hazelcast.yaml:/opt/hazelcast/config_ext/hazelcast.yaml
     ports:
       - 5701:5701
     deploy:
@@ -21,11 +22,12 @@ services:
     container_name: hazelcast2
     environment:
       - LOGGING_LEVEL=INFO
+      - JAVA_OPTS=-Dhazelcast.config=/opt/hazelcast/config_ext/hazelcast.yaml
     networks:
       hazelcast-network:
         ipv4_address: 192.168.0.12
     volumes:
-      - ./hazelcast.yaml:/opt/hazelcast/hazelcast.yaml
+      - ./hazelcast.yaml:/opt/hazelcast/config_ext/hazelcast.yaml
     ports:
       - 5702:5701
     deploy:
@@ -36,11 +38,12 @@ services:
     container_name: hazelcast3
     environment:
       - LOGGING_LEVEL=INFO
+      - JAVA_OPTS=-Dhazelcast.config=/opt/hazelcast/config_ext/hazelcast.yaml
     networks:
       hazelcast-network:
         ipv4_address: 192.168.0.13
     volumes:
-      - ./hazelcast.yaml:/opt/hazelcast/hazelcast.yaml
+      - ./hazelcast.yaml:/opt/hazelcast/config_ext/hazelcast.yaml
     ports:
       - 5703:5701
     deploy:
