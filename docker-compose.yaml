@@ -1,0 +1,69 @@
+version: '3'
+
+services:
+  hazelcast1:
+    image: hazelcast/hazelcast:5.2.3
+    container_name: hazelcast1
+    environment:
+      - LOGGING_LEVEL=INFO
+    networks:
+      hazelcast-network:
+        ipv4_address: 192.168.0.11
+    volumes:
+      - ./hazelcast.yaml:/opt/hazelcast/hazelcast.yaml
+    ports:
+      - 5701:5701
+    deploy:
+      replicas: 1
+
+  hazelcast2:
+    image: hazelcast/hazelcast:5.2.3
+    container_name: hazelcast2
+    environment:
+      - LOGGING_LEVEL=INFO
+    networks:
+      hazelcast-network:
+        ipv4_address: 192.168.0.12
+    volumes:
+      - ./hazelcast.yaml:/opt/hazelcast/hazelcast.yaml
+    ports:
+      - 5702:5701
+    deploy:
+      replicas: 1
+
+  hazelcast3:
+    image: hazelcast/hazelcast:5.2.3
+    container_name: hazelcast3
+    environment:
+      - LOGGING_LEVEL=INFO
+    networks:
+      hazelcast-network:
+        ipv4_address: 192.168.0.13
+    volumes:
+      - ./hazelcast.yaml:/opt/hazelcast/hazelcast.yaml
+    ports:
+      - 5703:5701
+    deploy:
+      replicas: 1
+
+  hazelcast-management-center:
+    image: hazelcast/management-center:5.2.1
+    container_name: hazelcast-management-center
+    environment:
+      - MC_DEFAULT_CLUSTER=dev
+      - MC_DEFAULT_CLUSTER_MEMBERS=hazelcast1,hazelcast2,hazelcast3
+    networks:
+      hazelcast-network:
+        ipv4_address: 192.168.0.14
+    ports:
+      - 8080:8080
+    deploy:
+      replicas: 1
+
+networks:
+  hazelcast-network:
+    name: hazelcast-network
+    ipam:
+      driver: default
+      config:
+        - subnet: 192.168.0.0/24
