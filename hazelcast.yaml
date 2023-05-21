@@ -1,0 +1,7 @@
+hazelcast:
+  map:
+    default:
+      backup-count: 1
+  queue:
+    default:
+      max-size: 5

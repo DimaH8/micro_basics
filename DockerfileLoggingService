@@ -1,0 +1,7 @@
+FROM openjdk:21-slim
+
+WORKDIR /loggingService
+
+COPY target/loggingService-jar-with-dependencies.jar ./loggingService.jar
+
+ENTRYPOINT ["java", "-jar", "/loggingService/loggingService.jar"]

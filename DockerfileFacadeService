@@ -1,0 +1,7 @@
+FROM openjdk:21-slim
+
+WORKDIR /facadeService
+
+COPY target/facadeService-jar-with-dependencies.jar ./facadeService.jar
+
+ENTRYPOINT ["java", "-jar", "/facadeService/facadeService.jar"]

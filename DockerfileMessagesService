@@ -1,0 +1,7 @@
+FROM openjdk:21-slim
+
+WORKDIR /messagesService
+
+COPY target/messagesService-jar-with-dependencies.jar ./messagesService.jar
+
+ENTRYPOINT ["java", "-jar", "/messagesService/messagesService.jar"]
