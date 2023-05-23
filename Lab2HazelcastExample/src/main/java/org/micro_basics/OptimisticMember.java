@@ -21,7 +21,6 @@ public class OptimisticMember {
 
         IMap<String, Value> map = hz.getMap( "default" );
         String key = "1";
-        map.put( key, new Value() );
         System.out.println( "Starting OptimisticMember for " + address);
         for ( int k = 0; k < 1000; k++ ) {
             if ( k % 10 == 0 ) System.out.println( "At: " + k );
@@ -35,23 +34,5 @@ public class OptimisticMember {
             }
         }
         System.out.println( "Finished OptimisticMember! Result = " + map.get( key ).amount );
-    }
-
-    static class Value implements Serializable {
-        public int amount;
-
-        public Value() {
-        }
-
-        public Value( Value that ) {
-            this.amount = that.amount;
-        }
-
-        public boolean equals( Object o ) {
-            if ( o == this ) return true;
-            if ( !( o instanceof Value ) ) return false;
-            Value that = ( Value ) o;
-            return that.amount == this.amount;
-        }
     }
 }

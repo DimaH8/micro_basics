@@ -20,7 +20,6 @@ public class PessimisticUpdateMember {
 
         IMap<String, Value> map = hz.getMap( "default" );
         String key = "1";
-        map.put( key, new Value() );
         System.out.println( "Starting PessimisticUpdateMember for" + address );
         for ( int k = 0; k < 1000; k++ ) {
             map.lock( key );
@@ -34,9 +33,5 @@ public class PessimisticUpdateMember {
             }
         }
         System.out.println( "Finished PessimisticUpdateMember! Result = " + map.get( key ).amount );
-    }
-
-    static class Value implements Serializable {
-        public int amount;
     }
 }

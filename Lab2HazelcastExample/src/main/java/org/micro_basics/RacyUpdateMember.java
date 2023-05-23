@@ -22,7 +22,6 @@ public class RacyUpdateMember {
 
         IMap<String, Value> map = hz.getMap( "default" );
         String key = "1";
-        map.put( key, new Value() );
         System.out.println( "Starting RacyUpdateMember for " + address);
         for ( int k = 0; k < 1000; k++ ) {
             if ( k % 100 == 0 ) System.out.println( "At: " + k );
@@ -31,10 +30,6 @@ public class RacyUpdateMember {
             value.amount++;
             map.put( key, value );
         }
-        System.out.println( "Finished! Result = " + map.get(key).amount );
-    }
-
-    static class Value implements Serializable {
-        public int amount;
+        System.out.println( "Finished RacyUpdateMember! Result = " + map.get(key).amount );
     }
 }
