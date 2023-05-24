@@ -5,6 +5,8 @@ services:
   facade-service:
     image: facade-service:1.0
     container_name: facade-service
+    environment:
+      - HAZELCAST_IP=192.168.0.13:5701
     networks:
       service-network:
         ipv4_address: 192.168.0.101
@@ -13,14 +15,29 @@ services:
     deploy:
       replicas: 1
 
-  messages-service:
+  messages-service1:
     image: messages-service:1.0
-    container_name: messages-service
+    container_name: messages-service1
+    environment:
+      - HAZELCAST_IP=192.168.0.11:5701
     networks:
       service-network:
-        ipv4_address: 192.168.0.103
+        ipv4_address: 192.168.0.113
     ports:
-      - 8003:8003
+      - 8013:8003
+    deploy:
+      replicas: 1
+
+  messages-service2:
+    image: messages-service:1.0
+    container_name: messages-service2
+    environment:
+      - HAZELCAST_IP=192.168.0.12:5701
+    networks:
+      service-network:
+        ipv4_address: 192.168.0.123
+    ports:
+      - 8023:8003
     deploy:
       replicas: 1
 

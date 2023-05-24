@@ -6,6 +6,15 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 
+import com.hazelcast.client.HazelcastClient;
+import com.hazelcast.client.config.ClientConfig;
+import com.hazelcast.collection.IQueue;
+import com.hazelcast.config.Config;
+import com.hazelcast.config.MapConfig;
+import com.hazelcast.config.NetworkConfig;
+import com.hazelcast.core.Hazelcast;
+import com.hazelcast.core.HazelcastInstance;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -18,10 +27,17 @@ import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class FacadeServiceApplication {
+    private static HazelcastInstance hzInstance;
 
     public static void main(String[] args) {
+        String hazelcastIP = System.getenv("HAZELCAST_IP");
+        System.out.println("Hazelcast address is " + hazelcastIP);
+        ClientConfig clientConfig = new ClientConfig();
+        clientConfig.getNetworkConfig().addAddress(hazelcastIP);
+        hzInstance = HazelcastClient.newHazelcastClient(clientConfig);
+
         try {
-            FacadeServiceController server = new FacadeServiceController();
+            FacadeServiceController server = new FacadeServiceController(hzInstance);
             System.out.println("Facade service is running");
             server.run();
         } catch (IOException e) {
@@ -31,8 +47,18 @@ public class FacadeServiceApplication {
 }
 class FacadeServiceController {
 
+    private static HazelcastInstance hzInstance;
+
+    private static String[] messagesServiceIPs = {"http://192.168.0.113:8003/", "http://192.168.0.123:8003/",};
     private static String[] loggingServiceIPs = {"http://192.168.0.112:8002/", "http://192.168.0.122:8002/", "http://192.168.0.132:8002/"};
 
+    FacadeServiceController(HazelcastInstance hz) {
+        hzInstance = hz;
+    }
+    private static String getMessagesServiceIP() {
+        int randomNum = ThreadLocalRandom.current().nextInt(0, messagesServiceIPs.length);
+        return messagesServiceIPs[randomNum];
+    }
     private static String getLoggingServiceIP() {
         int randomNum = ThreadLocalRandom.current().nextInt(0, loggingServiceIPs.length);
         return loggingServiceIPs[randomNum];
@@ -63,6 +89,15 @@ class FacadeServiceController {
         return response.body();
     }
 
+    private static void sendMsgToQueue(String msg) {
+        IQueue<String> queue = hzInstance.getQueue("default");
+        try {
+            queue.put(msg);
+            System.out.println("Added to Hazelcast Queue: " + msg);
+        } catch (InterruptedException e) {
+            System.out.println("Could not add msg to Hazelcast Queue. Error is " + e);
+        }
+    }
     private class RequestHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange httpExchange) throws IOException {
@@ -75,6 +110,7 @@ class FacadeServiceController {
                 UUID uuid = UUID.randomUUID();
                 String msg = getPostData(httpExchange);
                 System.out.println("POST data: " + msg);
+                sendMsgToQueue(msg);
                 String resultPair = uuid + "," + msg;
                 String ip = getLoggingServiceIP();
                 System.out.println("Send POST to loggingService (" + ip + ") with data: " + resultPair);
@@ -97,11 +133,12 @@ class FacadeServiceController {
                 if (responseFromLoggingService != null) {
                     System.out.println("loggingService response:" + responseFromLoggingService);
 
-                    System.out.println("Send GET to messagesService");
-                    String responseFromMessagesService = sendRequest("http://192.168.0.103:8003/");
+                    System.out.println("Send GET to messagesService " + ip);
+                    ip = getMessagesServiceIP();
+                    String responseFromMessagesService = sendRequest(ip);
                     if (responseFromMessagesService != null) {
                         System.out.println("messagesService response:" + responseFromMessagesService);
-                        responseData = responseFromLoggingService + " " + responseFromMessagesService;
+                        responseData = responseFromLoggingService + "  |  " + responseFromMessagesService;
                     } else {
                         statusCode = 500;
                         responseData = "MessagesService Error";
