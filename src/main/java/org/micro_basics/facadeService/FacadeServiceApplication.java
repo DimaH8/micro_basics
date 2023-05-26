@@ -1,6 +1,12 @@
 package org.micro_basics.facadeService;
 
 import java.io.IOException;
+
+import com.orbitz.consul.AgentClient;
+import com.orbitz.consul.Consul;
+import com.orbitz.consul.KeyValueClient;
+import com.orbitz.consul.model.agent.ImmutableRegistration;
+import com.orbitz.consul.model.agent.Registration;
 import com.sun.net.httpserver.HttpContext;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
@@ -14,6 +20,7 @@ import com.hazelcast.config.MapConfig;
 import com.hazelcast.config.NetworkConfig;
 import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
+import org.micro_basics.consul.ConsulConnection;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -23,14 +30,30 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.util.Collections;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class FacadeServiceApplication {
     private static HazelcastInstance hzInstance;
+    static ConsulConnection consulConnection;
+
+    public static String getHazelcastAddress() {
+        String allHazelcasts = consulConnection.getConfigValueAsString("app/config/all-hazelcast-instances");
+        String[] hzAddresses = allHazelcasts.split(",");
+        int randomNum = ThreadLocalRandom.current().nextInt(0, hzAddresses.length);
+        return hzAddresses[randomNum];
+    }
 
     public static void main(String[] args) {
-        String hazelcastIP = System.getenv("HAZELCAST_IP");
+        String myIp = ConsulConnection.getHostIpAddress();
+        System.out.println("Facade-Service IP is " + myIp);
+        String hostname = ConsulConnection.getHostname();
+        System.out.println("Facade-Service hostname is " + hostname);
+        String serviceName = System.getenv("SERVICE_NAME");
+        String serviceId = System.getenv("SERVICE_ID");
+        consulConnection = new ConsulConnection(serviceId, serviceName, myIp);
+        String hazelcastIP = getHazelcastAddress();
         System.out.println("Hazelcast address is " + hazelcastIP);
         ClientConfig clientConfig = new ClientConfig();
         clientConfig.getNetworkConfig().addAddress(hazelcastIP);
@@ -38,8 +61,9 @@ public class FacadeServiceApplication {
 
         try {
             FacadeServiceController server = new FacadeServiceController(hzInstance);
-            System.out.println("Facade service is running");
-            server.run();
+            int port = consulConnection.getConfigValueAsInt("app/config/facade-service/port");
+            System.out.println("Facade service is running on port " + port);
+            server.run(port);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -49,19 +73,22 @@ class FacadeServiceController {
 
     private static HazelcastInstance hzInstance;
 
-    private static String[] messagesServiceIPs = {"http://192.168.0.113:8003/", "http://192.168.0.123:8003/",};
-    private static String[] loggingServiceIPs = {"http://192.168.0.112:8002/", "http://192.168.0.122:8002/", "http://192.168.0.132:8002/"};
-
     FacadeServiceController(HazelcastInstance hz) {
         hzInstance = hz;
     }
     private static String getMessagesServiceIP() {
-        int randomNum = ThreadLocalRandom.current().nextInt(0, messagesServiceIPs.length);
-        return messagesServiceIPs[randomNum];
+        String allMessagesSrvs = FacadeServiceApplication.consulConnection.getConfigValueAsString("app/config/all-messages-services");
+        String[] msgSrvsAddresses = allMessagesSrvs.split(",");
+
+        int randomNum = ThreadLocalRandom.current().nextInt(0, msgSrvsAddresses.length);
+        return "http://" + msgSrvsAddresses[randomNum] + "/";
     }
     private static String getLoggingServiceIP() {
-        int randomNum = ThreadLocalRandom.current().nextInt(0, loggingServiceIPs.length);
-        return loggingServiceIPs[randomNum];
+        String allLoggingSrvs = FacadeServiceApplication.consulConnection.getConfigValueAsString("app/config/all-logging-services");
+        String[] loggingSrvsAddresses = allLoggingSrvs.split(",");
+
+        int randomNum = ThreadLocalRandom.current().nextInt(0, loggingSrvsAddresses.length);
+        return "http://" + loggingSrvsAddresses[randomNum] + "/";
     }
     private static String getPostData(HttpExchange exchange) throws IOException {
         StringBuilder sb = new StringBuilder();
@@ -158,8 +185,8 @@ class FacadeServiceController {
             os.close();
         }
     }
-    void run() throws IOException {
-        HttpServer server = HttpServer.create(new InetSocketAddress(8001),0);
+    void run(int port) throws IOException {
+        HttpServer server = HttpServer.create(new InetSocketAddress(port),0);
         HttpContext context = server.createContext("/");
         context.setHandler(new RequestHandler());
         server.start();

@@ -8,6 +8,7 @@ import com.sun.net.httpserver.HttpServer;
 import com.hazelcast.client.HazelcastClient;
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.core.HazelcastInstance;
+import org.micro_basics.consul.ConsulConnection;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -15,11 +16,27 @@ import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class LoggingServiceApplication {
     private static HazelcastInstance hzInstance;
+    static ConsulConnection consulConnection;
+    public static String getHazelcastAddress() {
+        String allHazelcasts = consulConnection.getConfigValueAsString("app/config/all-hazelcast-instances");
+        String[] hzAddresses = allHazelcasts.split(",");
+        int randomNum = ThreadLocalRandom.current().nextInt(0, hzAddresses.length);
+        return hzAddresses[randomNum];
+    }
+
     public static void main(String[] args) {
-        String hazelcastIP = System.getenv("HAZELCAST_IP");
+        String myIp = ConsulConnection.getHostIpAddress();
+        String hostname = ConsulConnection.getHostname();
+        System.out.println("logging-service ip is " + myIp);
+        System.out.println("logging-Service hostname is " + hostname);
+        String serviceName = System.getenv("SERVICE_NAME");
+        String serviceId = System.getenv("SERVICE_ID");
+        consulConnection = new ConsulConnection(serviceId, serviceName, myIp);
+        String hazelcastIP = getHazelcastAddress();
         System.out.println("Hazelcast address is " + hazelcastIP);
 
         ClientConfig config = new ClientConfig();

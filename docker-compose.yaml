@@ -1,12 +1,55 @@
-version: '3'
+version: '3.9'
 
 services:
+
+  consul-server:
+    image: consul:1.15.2
+    container_name: consul-server
+    restart: always
+    volumes:
+     - ./consul/server.json:/consul/config/server.json:ro
+    networks:
+      service-network:
+        ipv4_address: 192.168.0.10
+    ports:
+      - "8500:8500"
+      - "8600:8600/tcp"
+      - "8600:8600/udp"
+    command: "agent -client=192.168.0.10"
+    healthcheck:
+      test: curl -v http://192.168.0.10:8500/v1/agent/checks || exit 1
+      interval: 10s
+      timeout: 1s
+      retries: 12
+      start_period: 20s
+
+  consul-add-kv-data:
+    image: consul:1.15.2
+    container_name: consul-add-kv-data
+    networks:
+      - service-network
+    depends_on:
+      consul-server:
+        condition: service_healthy
+    entrypoint: ["/bin/sh","-c"]
+    command:
+      - |
+        export CONSUL_HTTP_ADDR=192.168.0.10:8500
+        consul kv put app/config/facade-service/port "8001"
+        consul kv put app/config/logging-service/port "8002"
+        consul kv put app/config/messages-service/port "8003"
+        consul kv put app/config/all-hazelcast-instances "192.168.0.11:5701,192.168.0.12:5701,192.168.0.13:5701"
+        consul kv put app/config/all-logging-services "192.168.0.112:8002,192.168.0.122:8002,192.168.0.132:8002"
+        consul kv put app/config/all-messages-services "192.168.0.113:8003,192.168.0.123:8003"
+        consul kv put app/config/hazelcast/map/name "loggingServiceMap"
+        consul kv put app/config/hazelcast/queue/name "facade2messagesQueue"
 
   facade-service:
     image: facade-service:1.0
     container_name: facade-service
     environment:
-      - HAZELCAST_IP=192.168.0.13:5701
+      - SERVICE_NAME=facade-service
+      - SERVICE_ID=facade-service
     networks:
       service-network:
         ipv4_address: 192.168.0.101
@@ -14,10 +57,14 @@ services:
       - 8001:8001
     deploy:
       replicas: 1
+    depends_on:
+      consul-add-kv-data:
+        condition: service_completed_successfully
 
   messages-service1:
     image: messages-service:1.0
     container_name: messages-service1
+    hostname: messages-service1
     environment:
       - HAZELCAST_IP=192.168.0.11:5701
     networks:
@@ -31,6 +78,7 @@ services:
   messages-service2:
     image: messages-service:1.0
     container_name: messages-service2
+    hostname: messages-service2
     environment:
       - HAZELCAST_IP=192.168.0.12:5701
     networks:
@@ -45,7 +93,8 @@ services:
     image: logging-service:1.0
     container_name: logging-service1
     environment:
-      - HAZELCAST_IP=192.168.0.11:5701
+      - SERVICE_NAME=logging-service1
+      - SERVICE_ID=logging-service1
     networks:
       service-network:
         ipv4_address: 192.168.0.112
@@ -57,8 +106,10 @@ services:
   logging-service2:
     image: logging-service:1.0
     container_name: logging-service2
+    hostname: logging-service2
     environment:
-      - HAZELCAST_IP=192.168.0.12:5701
+      - SERVICE_NAME=logging-service2
+      - SERVICE_ID=logging-service2
     networks:
       service-network:
         ipv4_address: 192.168.0.122
@@ -70,8 +121,10 @@ services:
   logging-service3:
     image: logging-service:1.0
     container_name: logging-service3
+    hostname: logging-service3
     environment:
-      - HAZELCAST_IP=192.168.0.13:5701
+      - SERVICE_NAME=logging-service3
+      - SERVICE_ID=logging-service3
     networks:
       service-network:
         ipv4_address: 192.168.0.132
