@@ -8,57 +8,67 @@ import com.sun.net.httpserver.HttpServer;
 import com.hazelcast.client.HazelcastClient;
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.core.HazelcastInstance;
-import org.micro_basics.consul.ConsulConnection;
+import org.micro_basics.common.ConsulConnection;
+import org.micro_basics.common.ServiceBase;
+import org.micro_basics.common.Utils;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.net.InetSocketAddress;
+
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class LoggingServiceApplication {
-    private static HazelcastInstance hzInstance;
-    static ConsulConnection consulConnection;
-    public static String getHazelcastAddress() {
-        String allHazelcasts = consulConnection.getConfigValueAsString("app/config/all-hazelcast-instances");
-        String[] hzAddresses = allHazelcasts.split(",");
-        int randomNum = ThreadLocalRandom.current().nextInt(0, hzAddresses.length);
-        return hzAddresses[randomNum];
-    }
+
 
     public static void main(String[] args) {
-        String myIp = ConsulConnection.getHostIpAddress();
-        String hostname = ConsulConnection.getHostname();
-        System.out.println("logging-service ip is " + myIp);
-        System.out.println("logging-Service hostname is " + hostname);
-        String serviceName = System.getenv("SERVICE_NAME");
-        String serviceId = System.getenv("SERVICE_ID");
-        consulConnection = new ConsulConnection(serviceId, serviceName, myIp);
-        String hazelcastIP = getHazelcastAddress();
-        System.out.println("Hazelcast address is " + hazelcastIP);
+        int port = Integer.parseInt(System.getenv("SERVICE_PORT"));
+        String name = System.getenv("SERVICE_NAME");
+        String id = System.getenv("SERVICE_ID");
+        String consulUrl = System.getenv("CONSUL_URL");
 
-        ClientConfig config = new ClientConfig();
-        config.getNetworkConfig().addAddress(hazelcastIP);
-        hzInstance = HazelcastClient.newHazelcastClient(config);
-        System.out.println("HazelcastClient created");
+        System.out.println("Service name is " + name);
+        System.out.println("Service id is " + id);
+        System.out.println("Service port is " + port);
 
-        try {
-            LoggingServiceController server = new LoggingServiceController(hzInstance);
-            System.out.println("Logging service is running");
-            server.run();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        LoggingServiceController service = new LoggingServiceController(name, id, port, consulUrl);
+        service.run();
+
+        Utils.waitDockerSignal();
+
+        service.shutdown();
     }
 }
 
-class LoggingServiceController {
+class LoggingServiceController  extends ServiceBase {
     private static HazelcastInstance hzInstance;
-    LoggingServiceController(HazelcastInstance hazelcastInstance) {
-        hzInstance = hazelcastInstance;
+
+    LoggingServiceController(String name, String id, int port, String consulUrl)  {
+        super(name, id, port, consulUrl);
+
+        String hazelcastIP = getHazelcastAddress();
+        System.out.println("Hazelcast address is " + hazelcastIP);
+        ClientConfig clientConfig = new ClientConfig();
+        clientConfig.getNetworkConfig().addAddress(hazelcastIP);
+        hzInstance = HazelcastClient.newHazelcastClient(clientConfig);
+        System.out.println("Service " + serviceId + " is created");
     }
+    void run() {
+        HttpContext context = httpServer.createContext("/");
+        context.setHandler(new RequestHandler());
+        httpServer.start();
+        System.out.println("Service " + serviceId + " started");
+    }
+
+    void shutdown() {
+        httpServer.stop(0);
+        hzInstance.shutdown();
+        consulConnection.close();
+        System.out.println("Service " + serviceId + " finished");
+    }
+
     private static void addToMap(UUID uuid, String msg) {
         Map<String, String> messages = hzInstance.getMap( "facadeServiceMessages" );
         System.out.println("HazelcastClient facadeServiceMessages map ok");
@@ -112,12 +122,5 @@ class LoggingServiceController {
             os.write(responseData.getBytes());
             os.close();
         }
-    }
-    void run() throws IOException {
-        System.out.println("Start web-server");
-        HttpServer server = HttpServer.create(new InetSocketAddress(8002),0);
-        HttpContext context = server.createContext("/");
-        context.setHandler(new LoggingServiceController.RequestHandler());
-        server.start();
     }
 }

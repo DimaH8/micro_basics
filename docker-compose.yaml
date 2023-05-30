@@ -35,12 +35,7 @@ services:
     command:
       - |
         export CONSUL_HTTP_ADDR=192.168.0.10:8500
-        consul kv put app/config/facade-service/port "8001"
-        consul kv put app/config/logging-service/port "8002"
-        consul kv put app/config/messages-service/port "8003"
         consul kv put app/config/all-hazelcast-instances "192.168.0.11:5701,192.168.0.12:5701,192.168.0.13:5701"
-        consul kv put app/config/all-logging-services "192.168.0.112:8002,192.168.0.122:8002,192.168.0.132:8002"
-        consul kv put app/config/all-messages-services "192.168.0.113:8003,192.168.0.123:8003"
         consul kv put app/config/hazelcast/map/name "loggingServiceMap"
         consul kv put app/config/hazelcast/queue/name "facade2messagesQueue"
 
@@ -49,7 +44,9 @@ services:
     container_name: facade-service
     environment:
       - SERVICE_NAME=facade-service
-      - SERVICE_ID=facade-service
+      - SERVICE_ID=facade-service1
+      - SERVICE_PORT=8001
+      - CONSUL_URL="http://192.168.0.10:8500"
     networks:
       service-network:
         ipv4_address: 192.168.0.101
@@ -66,7 +63,10 @@ services:
     container_name: messages-service1
     hostname: messages-service1
     environment:
-      - HAZELCAST_IP=192.168.0.11:5701
+      - SERVICE_NAME=messages-service
+      - SERVICE_ID=messages-service1
+      - SERVICE_PORT=8003
+      - CONSUL_URL="http://192.168.0.10:8500"
     networks:
       service-network:
         ipv4_address: 192.168.0.113
@@ -80,7 +80,10 @@ services:
     container_name: messages-service2
     hostname: messages-service2
     environment:
-      - HAZELCAST_IP=192.168.0.12:5701
+      - SERVICE_NAME=messages-service
+      - SERVICE_ID=messages-service2
+      - SERVICE_PORT=8003
+      - CONSUL_URL="http://192.168.0.10:8500"
     networks:
       service-network:
         ipv4_address: 192.168.0.123
@@ -93,8 +96,10 @@ services:
     image: logging-service:1.0
     container_name: logging-service1
     environment:
-      - SERVICE_NAME=logging-service1
+      - SERVICE_NAME=logging-service
       - SERVICE_ID=logging-service1
+      - SERVICE_PORT=8002
+      - CONSUL_URL="http://192.168.0.10:8500"
     networks:
       service-network:
         ipv4_address: 192.168.0.112
@@ -108,8 +113,10 @@ services:
     container_name: logging-service2
     hostname: logging-service2
     environment:
-      - SERVICE_NAME=logging-service2
+      - SERVICE_NAME=logging-service
       - SERVICE_ID=logging-service2
+      - SERVICE_PORT=8002
+      - CONSUL_URL="http://192.168.0.10:8500"
     networks:
       service-network:
         ipv4_address: 192.168.0.122
@@ -123,8 +130,10 @@ services:
     container_name: logging-service3
     hostname: logging-service3
     environment:
-      - SERVICE_NAME=logging-service3
+      - SERVICE_NAME=logging-service
       - SERVICE_ID=logging-service3
+      - SERVICE_PORT=8002
+      - CONSUL_URL="http://192.168.0.10:8500"
     networks:
       service-network:
         ipv4_address: 192.168.0.132

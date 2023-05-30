@@ -2,95 +2,88 @@ package org.micro_basics.facadeService;
 
 import java.io.IOException;
 
-import com.orbitz.consul.AgentClient;
-import com.orbitz.consul.Consul;
-import com.orbitz.consul.KeyValueClient;
-import com.orbitz.consul.model.agent.ImmutableRegistration;
-import com.orbitz.consul.model.agent.Registration;
 import com.sun.net.httpserver.HttpContext;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
-import com.sun.net.httpserver.HttpServer;
 
 import com.hazelcast.client.HazelcastClient;
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.collection.IQueue;
-import com.hazelcast.config.Config;
-import com.hazelcast.config.MapConfig;
-import com.hazelcast.config.NetworkConfig;
-import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
-import org.micro_basics.consul.ConsulConnection;
 
-import java.io.IOException;
+import org.micro_basics.common.ServiceBase;
+import org.micro_basics.common.Utils;
+
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.util.Collections;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class FacadeServiceApplication {
-    private static HazelcastInstance hzInstance;
-    static ConsulConnection consulConnection;
-
-    public static String getHazelcastAddress() {
-        String allHazelcasts = consulConnection.getConfigValueAsString("app/config/all-hazelcast-instances");
-        String[] hzAddresses = allHazelcasts.split(",");
-        int randomNum = ThreadLocalRandom.current().nextInt(0, hzAddresses.length);
-        return hzAddresses[randomNum];
-    }
 
     public static void main(String[] args) {
-        String myIp = ConsulConnection.getHostIpAddress();
-        System.out.println("Facade-Service IP is " + myIp);
-        String hostname = ConsulConnection.getHostname();
-        System.out.println("Facade-Service hostname is " + hostname);
-        String serviceName = System.getenv("SERVICE_NAME");
-        String serviceId = System.getenv("SERVICE_ID");
-        consulConnection = new ConsulConnection(serviceId, serviceName, myIp);
+        int port = Integer.parseInt(System.getenv("SERVICE_PORT"));
+        String name = System.getenv("SERVICE_NAME");
+        String id = System.getenv("SERVICE_ID");
+        String consulUrl = System.getenv("CONSUL_URL");
+
+        System.out.println("Service name is " + name);
+        System.out.println("Service id is " + id);
+        System.out.println("Service port is " + port);
+
+        FacadeServiceController service = new FacadeServiceController(name, id, port, consulUrl);
+        service.run();
+
+        Utils.waitDockerSignal();
+
+        service.shutdown();
+    }
+}
+class FacadeServiceController extends ServiceBase {
+    private HazelcastInstance hzInstance;
+    FacadeServiceController(String name, String id, int port, String consulUrl)  {
+        super(name, id, port, consulUrl);
+
         String hazelcastIP = getHazelcastAddress();
         System.out.println("Hazelcast address is " + hazelcastIP);
         ClientConfig clientConfig = new ClientConfig();
         clientConfig.getNetworkConfig().addAddress(hazelcastIP);
         hzInstance = HazelcastClient.newHazelcastClient(clientConfig);
-
-        try {
-            FacadeServiceController server = new FacadeServiceController(hzInstance);
-            int port = consulConnection.getConfigValueAsInt("app/config/facade-service/port");
-            System.out.println("Facade service is running on port " + port);
-            server.run(port);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        System.out.println("Service " + serviceId + " is created");
     }
-}
-class FacadeServiceController {
-
-    private static HazelcastInstance hzInstance;
-
-    FacadeServiceController(HazelcastInstance hz) {
-        hzInstance = hz;
+    void run() {
+        HttpContext context = httpServer.createContext("/");
+        context.setHandler(new RequestHandler());
+        httpServer.start();
+        System.out.println("Service " + serviceId + " started");
     }
-    private static String getMessagesServiceIP() {
-        String allMessagesSrvs = FacadeServiceApplication.consulConnection.getConfigValueAsString("app/config/all-messages-services");
+
+    void shutdown() {
+        httpServer.stop(0);
+        hzInstance.shutdown();
+        consulConnection.close();
+        System.out.println("Service " + serviceId + " finished");
+    }
+
+    private String getMessagesServiceIP() {
+        String allMessagesSrvs = consulConnection.getConfigValueAsString("app/config/all-messages-services");
         String[] msgSrvsAddresses = allMessagesSrvs.split(",");
 
         int randomNum = ThreadLocalRandom.current().nextInt(0, msgSrvsAddresses.length);
         return "http://" + msgSrvsAddresses[randomNum] + "/";
     }
-    private static String getLoggingServiceIP() {
-        String allLoggingSrvs = FacadeServiceApplication.consulConnection.getConfigValueAsString("app/config/all-logging-services");
+    private String getLoggingServiceIP() {
+        String allLoggingSrvs = consulConnection.getConfigValueAsString("app/config/all-logging-services");
         String[] loggingSrvsAddresses = allLoggingSrvs.split(",");
 
         int randomNum = ThreadLocalRandom.current().nextInt(0, loggingSrvsAddresses.length);
         return "http://" + loggingSrvsAddresses[randomNum] + "/";
     }
-    private static String getPostData(HttpExchange exchange) throws IOException {
+    private String getPostData(HttpExchange exchange) throws IOException {
         StringBuilder sb = new StringBuilder();
         InputStream ios = exchange.getRequestBody();
         int i;
@@ -99,7 +92,7 @@ class FacadeServiceController {
         }
         return sb.toString();
     }
-    private static String sendRequest(String url) {
+    private String sendRequest(String url) {
         HttpClient httpClient = HttpClient.newHttpClient();
         URI uri = URI.create(url);
         HttpRequest request = HttpRequest.newBuilder(uri).GET().build();
@@ -116,7 +109,7 @@ class FacadeServiceController {
         return response.body();
     }
 
-    private static void sendMsgToQueue(String msg) {
+    private void sendMsgToQueue(String msg) {
         IQueue<String> queue = hzInstance.getQueue("default");
         try {
             queue.put(msg);
@@ -184,11 +177,5 @@ class FacadeServiceController {
             os.write(responseData.getBytes());
             os.close();
         }
-    }
-    void run(int port) throws IOException {
-        HttpServer server = HttpServer.create(new InetSocketAddress(port),0);
-        HttpContext context = server.createContext("/");
-        context.setHandler(new RequestHandler());
-        server.start();
     }
 }
