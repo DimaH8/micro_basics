@@ -1,57 +1,60 @@
 package org.micro_basics.messagesService;
 
-import com.sun.net.httpserver.HttpContext;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
-import com.sun.net.httpserver.HttpServer;
 
-import java.io.Closeable;
+
 import java.io.IOException;
 import java.io.OutputStream;
-import java.net.InetSocketAddress;
+
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 
-import com.hazelcast.client.HazelcastClient;
-import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.collection.IQueue;
-import com.hazelcast.config.Config;
-import com.hazelcast.config.MapConfig;
-import com.hazelcast.config.NetworkConfig;
-import com.hazelcast.core.Hazelcast;
+
 import com.hazelcast.core.HazelcastInstance;
+import org.micro_basics.common.ServiceBase;
+import org.micro_basics.common.Utils;
 
 public class MessagesServiceApplication {
-    private static HazelcastInstance hzInstance;
 
     public static void main(String[] args) {
-        String hazelcastIP = System.getenv("HAZELCAST_IP");
-        System.out.println("Hazelcast address is " + hazelcastIP);
-        ClientConfig clientConfig = new ClientConfig();
-        clientConfig.getNetworkConfig().addAddress(hazelcastIP);
-        hzInstance = HazelcastClient.newHazelcastClient(clientConfig);
+        int port = Integer.parseInt(System.getenv("SERVICE_PORT"));
+        String name = System.getenv("SERVICE_NAME");
+        String id = System.getenv("SERVICE_ID");
+        String consulUrl = System.getenv("CONSUL_URL");
 
-        try {
-            MessagesServiceController server = new MessagesServiceController(hzInstance);
-            System.out.println("Messages service is running");
-            server.run();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        System.out.println("Service name is " + name);
+        System.out.println("Service id is " + id);
+        System.out.println("Service port is " + port);
+
+        MessagesServiceController service = new MessagesServiceController(name, id, port, consulUrl);
+        service.run();
+
+        Utils.waitDockerSignal();
+
+        service.shutdown();
     }
 }
 
-class MessagesServiceController {
-    private static HazelcastInstance hzInstance;
+class MessagesServiceController extends ServiceBase {
     private static Queue<String> serviceQueue = new ConcurrentLinkedQueue<String>();
     private Thread thread;
+    private final AtomicBoolean running = new AtomicBoolean(true);
+    String msgQueueName;
 
-    MessagesServiceController(HazelcastInstance hz) {
-        hzInstance = hz;
+    MessagesServiceController(String name, String id, int port, String consulUrl)  {
+        super(name, id, port, consulUrl);
+        setHttpHandler("/", new RequestHandler());
+
+        msgQueueName = consulConnection.getConfigValueAsString("app/config/hazelcast/queue/name");
+        System.out.println("msgQueueName = " + msgQueueName);
+
         thread = new Thread(() -> {
             System.out.println("Hazelcast Distributed Queue reader thread started");
-            while (true) {
-                IQueue<String> queue = hzInstance.getQueue("default");
+            while (running.get()) {
+                IQueue<String> queue = hzInstance.getQueue(msgQueueName);
                 try {
                     String msg = queue.take();
                     System.out.println("Read from Hazelcast Distributed Queue: " + msg);
@@ -62,6 +65,18 @@ class MessagesServiceController {
             }
         });
         thread.start();
+        System.out.println("Service " + serviceId + " is created");
+    }
+
+    public void shutdown() {
+        // finish thread
+        running.set(false);
+        shutdown();
+        try {
+            thread.join();
+        } catch (InterruptedException e) {
+            System.out.println("Cannot thread.join");
+        }
     }
     private class RequestHandler implements HttpHandler {
         @Override
@@ -84,11 +99,5 @@ class MessagesServiceController {
             os.write(responseData.getBytes());
             os.close();
         }
-    }
-    void run() throws IOException {
-        HttpServer server = HttpServer.create(new InetSocketAddress(8003),0);
-        HttpContext context = server.createContext("/");
-        context.setHandler(new MessagesServiceController.RequestHandler());
-        server.start();
     }
 }

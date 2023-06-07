@@ -1,24 +1,16 @@
 package org.micro_basics.loggingService;
 
-import com.sun.net.httpserver.HttpContext;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
-import com.sun.net.httpserver.HttpServer;
 
-import com.hazelcast.client.HazelcastClient;
-import com.hazelcast.client.config.ClientConfig;
-import com.hazelcast.core.HazelcastInstance;
-import org.micro_basics.common.ConsulConnection;
 import org.micro_basics.common.ServiceBase;
 import org.micro_basics.common.Utils;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
 
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
 
 public class LoggingServiceApplication {
 
@@ -43,54 +35,30 @@ public class LoggingServiceApplication {
 }
 
 class LoggingServiceController  extends ServiceBase {
-    private static HazelcastInstance hzInstance;
-
+    String mapName;
     LoggingServiceController(String name, String id, int port, String consulUrl)  {
         super(name, id, port, consulUrl);
-
-        String hazelcastIP = getHazelcastAddress();
-        System.out.println("Hazelcast address is " + hazelcastIP);
-        ClientConfig clientConfig = new ClientConfig();
-        clientConfig.getNetworkConfig().addAddress(hazelcastIP);
-        hzInstance = HazelcastClient.newHazelcastClient(clientConfig);
+        setHttpHandler("/", new RequestHandler());
         System.out.println("Service " + serviceId + " is created");
-    }
-    void run() {
-        HttpContext context = httpServer.createContext("/");
-        context.setHandler(new RequestHandler());
-        httpServer.start();
-        System.out.println("Service " + serviceId + " started");
+
+        mapName = consulConnection.getConfigValueAsString("app/config/hazelcast/map/name");
+        System.out.println("mapName = " + mapName);
     }
 
-    void shutdown() {
-        httpServer.stop(0);
-        hzInstance.shutdown();
-        consulConnection.close();
-        System.out.println("Service " + serviceId + " finished");
-    }
-
-    private static void addToMap(UUID uuid, String msg) {
-        Map<String, String> messages = hzInstance.getMap( "facadeServiceMessages" );
+    private void addToMap(UUID uuid, String msg) {
+        Map<String, String> messages = hzInstance.getMap(mapName);
         System.out.println("HazelcastClient facadeServiceMessages map ok");
         messages.put(uuid.toString(), msg);
     }
 
-    private static String getMapValues() {
-        Map<String, String> messages = hzInstance.getMap( "facadeServiceMessages" );
+    private String getMapValues() {
+        Map<String, String> messages = hzInstance.getMap(mapName);
         System.out.println("HazelcastClient facadeServiceMessages map ok");
         String values = String.join(",", messages.values());
         return values;
     }
 
-    private static String getPostData(HttpExchange exchange) throws IOException {
-        StringBuilder sb = new StringBuilder();
-        InputStream ios = exchange.getRequestBody();
-        int i;
-        while ((i = ios.read()) != -1) {
-            sb.append((char) i);
-        }
-        return sb.toString();
-    }
+
     private class RequestHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange httpExchange) throws IOException {

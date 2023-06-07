@@ -1,8 +1,15 @@
 package org.micro_basics.common;
 
+import com.hazelcast.client.HazelcastClient;
+import com.hazelcast.client.config.ClientConfig;
+import com.hazelcast.core.HazelcastInstance;
+import com.sun.net.httpserver.HttpContext;
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
@@ -14,6 +21,7 @@ public class ServiceBase {
     protected String serviceId;
 
     protected HttpServer httpServer;
+    protected HazelcastInstance hzInstance;
     protected ConsulConnection consulConnection;
 
     public ServiceBase(String name, String id, int port, String consulUrl) {
@@ -24,7 +32,6 @@ public class ServiceBase {
         String myIp = getHostIpAddress();
         System.out.println("IP address is " + myIp);
 
-        consulConnection = new ConsulConnection(consulUrl, serviceId, serviceName, myIp);
         try {
             httpServer = HttpServer.create(new InetSocketAddress(servicePort),0);
             System.out.println("HttpServer created on port " + servicePort);
@@ -32,6 +39,31 @@ public class ServiceBase {
             System.out.println("HttpServer.create failed");
             throw new RuntimeException(e);
         }
+
+        consulConnection = new ConsulConnection(consulUrl, serviceId, serviceName, myIp);
+
+        String hazelcastIP = getHazelcastAddress();
+        System.out.println("Hazelcast address is " + hazelcastIP);
+        ClientConfig clientConfig = new ClientConfig();
+        clientConfig.getNetworkConfig().addAddress(hazelcastIP);
+        hzInstance = HazelcastClient.newHazelcastClient(clientConfig);
+    }
+
+    public void run() {
+        httpServer.start();
+        System.out.println("Service " + serviceId + " started");
+    }
+
+    public void shutdown() {
+        httpServer.stop(0);
+        hzInstance.shutdown();
+        consulConnection.close();
+        System.out.println("Service " + serviceId + " finished");
+    }
+
+    protected void setHttpHandler(String path, HttpHandler httpHandler) {
+        HttpContext context = httpServer.createContext(path);
+        context.setHandler(httpHandler);
     }
 
     protected String getHazelcastAddress() {
@@ -49,5 +81,15 @@ public class ServiceBase {
             e.printStackTrace();
             return "";
         }
+    }
+
+    protected static String getPostData(HttpExchange exchange) throws IOException {
+        StringBuilder sb = new StringBuilder();
+        InputStream ios = exchange.getRequestBody();
+        int i;
+        while ((i = ios.read()) != -1) {
+            sb.append((char) i);
+        }
+        return sb.toString();
     }
 }

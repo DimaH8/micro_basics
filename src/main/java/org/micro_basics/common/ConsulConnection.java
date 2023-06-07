@@ -46,7 +46,7 @@ public class ConsulConnection {
         return value;
     }
 
-    public void getService(String name) {
+    public List<String> getServices(String name) {
         ConsulResponse<List<CatalogService>> consulResponse = consulClient.catalogClient().getService(name);
         List<CatalogService> list = consulResponse.getResponse();
         System.out.println(name + " services - found " + list.size());
@@ -54,6 +54,7 @@ public class ConsulConnection {
         for (CatalogService catalogService : list) {
             result.add(catalogService.getServiceAddress() + ":" + catalogService.getServicePort());
         }
+        return result;
     }
 
 

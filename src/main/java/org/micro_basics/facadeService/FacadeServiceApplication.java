@@ -20,6 +20,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -44,54 +45,26 @@ public class FacadeServiceApplication {
     }
 }
 class FacadeServiceController extends ServiceBase {
-    private HazelcastInstance hzInstance;
+    String msgQueueName;
     FacadeServiceController(String name, String id, int port, String consulUrl)  {
         super(name, id, port, consulUrl);
-
-        String hazelcastIP = getHazelcastAddress();
-        System.out.println("Hazelcast address is " + hazelcastIP);
-        ClientConfig clientConfig = new ClientConfig();
-        clientConfig.getNetworkConfig().addAddress(hazelcastIP);
-        hzInstance = HazelcastClient.newHazelcastClient(clientConfig);
+        setHttpHandler("/", new RequestHandler());
         System.out.println("Service " + serviceId + " is created");
-    }
-    void run() {
-        HttpContext context = httpServer.createContext("/");
-        context.setHandler(new RequestHandler());
-        httpServer.start();
-        System.out.println("Service " + serviceId + " started");
-    }
-
-    void shutdown() {
-        httpServer.stop(0);
-        hzInstance.shutdown();
-        consulConnection.close();
-        System.out.println("Service " + serviceId + " finished");
+        msgQueueName = consulConnection.getConfigValueAsString("app/config/hazelcast/queue/name");
+        System.out.println("msgQueueName = " + msgQueueName);
     }
 
     private String getMessagesServiceIP() {
-        String allMessagesSrvs = consulConnection.getConfigValueAsString("app/config/all-messages-services");
-        String[] msgSrvsAddresses = allMessagesSrvs.split(",");
-
-        int randomNum = ThreadLocalRandom.current().nextInt(0, msgSrvsAddresses.length);
-        return "http://" + msgSrvsAddresses[randomNum] + "/";
+        List<String> msgServices = consulConnection.getServices("messages-service");
+        int randomNum = ThreadLocalRandom.current().nextInt(0, msgServices.size());
+        return "http://" + msgServices.get(randomNum) + "/";
     }
     private String getLoggingServiceIP() {
-        String allLoggingSrvs = consulConnection.getConfigValueAsString("app/config/all-logging-services");
-        String[] loggingSrvsAddresses = allLoggingSrvs.split(",");
+        List<String> loggingServices = consulConnection.getServices("logging-service");
+        int randomNum = ThreadLocalRandom.current().nextInt(0, loggingServices.size());
+        return "http://" + loggingServices.get(randomNum) + "/";
+    }
 
-        int randomNum = ThreadLocalRandom.current().nextInt(0, loggingSrvsAddresses.length);
-        return "http://" + loggingSrvsAddresses[randomNum] + "/";
-    }
-    private String getPostData(HttpExchange exchange) throws IOException {
-        StringBuilder sb = new StringBuilder();
-        InputStream ios = exchange.getRequestBody();
-        int i;
-        while ((i = ios.read()) != -1) {
-            sb.append((char) i);
-        }
-        return sb.toString();
-    }
     private String sendRequest(String url) {
         HttpClient httpClient = HttpClient.newHttpClient();
         URI uri = URI.create(url);
@@ -110,7 +83,7 @@ class FacadeServiceController extends ServiceBase {
     }
 
     private void sendMsgToQueue(String msg) {
-        IQueue<String> queue = hzInstance.getQueue("default");
+        IQueue<String> queue = hzInstance.getQueue(msgQueueName);
         try {
             queue.put(msg);
             System.out.println("Added to Hazelcast Queue: " + msg);
