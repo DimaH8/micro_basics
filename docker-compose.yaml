@@ -46,7 +46,7 @@ services:
       - SERVICE_NAME=facade-service
       - SERVICE_ID=facade-service1
       - SERVICE_PORT=8001
-      - CONSUL_URL="http://192.168.0.10:8500"
+      - CONSUL_URL=192.168.0.10:8500
     networks:
       service-network:
         ipv4_address: 192.168.0.101
@@ -65,7 +65,7 @@ services:
       - SERVICE_NAME=messages-service
       - SERVICE_ID=messages-service1
       - SERVICE_PORT=8003
-      - CONSUL_URL="http://192.168.0.10:8500"
+      - CONSUL_URL=192.168.0.10:8500
     networks:
       service-network:
         ipv4_address: 192.168.0.113
@@ -84,7 +84,7 @@ services:
       - SERVICE_NAME=messages-service
       - SERVICE_ID=messages-service2
       - SERVICE_PORT=8003
-      - CONSUL_URL="http://192.168.0.10:8500"
+      - CONSUL_URL=192.168.0.10:8500
     networks:
       service-network:
         ipv4_address: 192.168.0.123
@@ -103,7 +103,7 @@ services:
       - SERVICE_NAME=logging-service
       - SERVICE_ID=logging-service1
       - SERVICE_PORT=8002
-      - CONSUL_URL="http://192.168.0.10:8500"
+      - CONSUL_URL=192.168.0.10:8500
     networks:
       service-network:
         ipv4_address: 192.168.0.112
@@ -122,7 +122,7 @@ services:
       - SERVICE_NAME=logging-service
       - SERVICE_ID=logging-service2
       - SERVICE_PORT=8002
-      - CONSUL_URL="http://192.168.0.10:8500"
+      - CONSUL_URL=192.168.0.10:8500
     networks:
       service-network:
         ipv4_address: 192.168.0.122
@@ -141,7 +141,7 @@ services:
       - SERVICE_NAME=logging-service
       - SERVICE_ID=logging-service3
       - SERVICE_PORT=8002
-      - CONSUL_URL="http://192.168.0.10:8500"
+      - CONSUL_URL=192.168.0.10:8500
     networks:
       service-network:
         ipv4_address: 192.168.0.132

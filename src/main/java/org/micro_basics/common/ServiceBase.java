@@ -40,7 +40,7 @@ public class ServiceBase {
             throw new RuntimeException(e);
         }
 
-        consulConnection = new ConsulConnection(consulUrl, serviceId, serviceName, myIp);
+        consulConnection = new ConsulConnection(consulUrl, serviceId, serviceName, myIp, port);
 
         String hazelcastIP = getHazelcastAddress();
         System.out.println("Hazelcast address is " + hazelcastIP);

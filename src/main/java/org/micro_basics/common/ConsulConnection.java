@@ -6,21 +6,25 @@ import com.orbitz.consul.model.agent.ImmutableRegistration;
 import com.orbitz.consul.model.agent.Registration;
 import com.orbitz.consul.model.catalog.CatalogService;
 
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.*;
 
 public class ConsulConnection {
     private Consul consulClient;
     private String serviceId;
 
-    public ConsulConnection(String url, String id, String name, String ip) {
+    public ConsulConnection(String url, String id, String name, String ip, int port) {
         serviceId = id;
-        consulClient = Consul.builder().withUrl(url).build();
+        System.out.println("ConsulConnection: url = " + url);
+
+        consulClient = Consul.builder().withUrl("http://" + url).build();
 
         Registration service = ImmutableRegistration.builder()
                 .id(id)
                 .name(name)
                 .address(ip)
-                .port(8000)
+                .port(port)
                 .tags(Collections.singletonList(id))
                 .meta(Collections.singletonMap("version", "1.0"))
                 .build();
@@ -49,11 +53,11 @@ public class ConsulConnection {
     public List<String> getServices(String name) {
         ConsulResponse<List<CatalogService>> consulResponse = consulClient.catalogClient().getService(name);
         List<CatalogService> list = consulResponse.getResponse();
-        System.out.println(name + " services - found " + list.size());
         List<String> result = new ArrayList<>();
         for (CatalogService catalogService : list) {
             result.add(catalogService.getServiceAddress() + ":" + catalogService.getServicePort());
         }
+        System.out.println("Consul: " + name + " services - found " + list.size() + "  " + String.join(",", result));
         return result;
     }
 
