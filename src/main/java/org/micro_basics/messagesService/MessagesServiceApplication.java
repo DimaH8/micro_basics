@@ -22,14 +22,12 @@ public class MessagesServiceApplication {
     public static void main(String[] args) {
         int port = Integer.parseInt(System.getenv("SERVICE_PORT"));
         String name = System.getenv("SERVICE_NAME");
-        String id = System.getenv("SERVICE_ID");
         String consulUrl = System.getenv("CONSUL_URL");
 
         System.out.println("Service name is " + name);
-        System.out.println("Service id is " + id);
         System.out.println("Service port is " + port);
 
-        MessagesServiceController service = new MessagesServiceController(name, id, port, consulUrl);
+        MessagesServiceController service = new MessagesServiceController(name, port, consulUrl);
         service.run();
 
         Utils.waitDockerSignal();
@@ -44,8 +42,8 @@ class MessagesServiceController extends ServiceBase {
     private final AtomicBoolean running = new AtomicBoolean(true);
     String msgQueueName;
 
-    MessagesServiceController(String name, String id, int port, String consulUrl)  {
-        super(name, id, port, consulUrl);
+    MessagesServiceController(String name, int port, String consulUrl)  {
+        super(name, port, consulUrl);
         setHttpHandler("/", new RequestHandler());
 
         msgQueueName = consulConnection.getConfigValueAsString("app/config/hazelcast/queue/name");

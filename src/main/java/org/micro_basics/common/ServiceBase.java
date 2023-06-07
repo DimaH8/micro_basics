@@ -13,6 +13,7 @@ import java.io.InputStream;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
+import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class ServiceBase {
@@ -24,13 +25,13 @@ public class ServiceBase {
     protected HazelcastInstance hzInstance;
     protected ConsulConnection consulConnection;
 
-    public ServiceBase(String name, String id, int port, String consulUrl) {
+    public ServiceBase(String name, int port, String consulUrl) {
         servicePort = port;
         serviceName = name;
-        serviceId = id;
-
+        serviceId = name + "-" + UUID.randomUUID();
+        System.out.println("Service ID: " + serviceId);
         String myIp = getHostIpAddress();
-        System.out.println("IP address is " + myIp);
+        System.out.println("IP address: " + myIp);
 
         try {
             httpServer = HttpServer.create(new InetSocketAddress(servicePort),0);

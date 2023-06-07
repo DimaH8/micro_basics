@@ -29,14 +29,12 @@ public class FacadeServiceApplication {
     public static void main(String[] args) {
         int port = Integer.parseInt(System.getenv("SERVICE_PORT"));
         String name = System.getenv("SERVICE_NAME");
-        String id = System.getenv("SERVICE_ID");
         String consulUrl = System.getenv("CONSUL_URL");
 
         System.out.println("Service name is " + name);
-        System.out.println("Service id is " + id);
         System.out.println("Service port is " + port);
 
-        FacadeServiceController service = new FacadeServiceController(name, id, port, consulUrl);
+        FacadeServiceController service = new FacadeServiceController(name, port, consulUrl);
         service.run();
 
         Utils.waitDockerSignal();
@@ -46,8 +44,8 @@ public class FacadeServiceApplication {
 }
 class FacadeServiceController extends ServiceBase {
     String msgQueueName;
-    FacadeServiceController(String name, String id, int port, String consulUrl)  {
-        super(name, id, port, consulUrl);
+    FacadeServiceController(String name, int port, String consulUrl)  {
+        super(name, port, consulUrl);
         setHttpHandler("/", new RequestHandler());
         System.out.println("Service " + serviceId + " is created");
         msgQueueName = consulConnection.getConfigValueAsString("app/config/hazelcast/queue/name");

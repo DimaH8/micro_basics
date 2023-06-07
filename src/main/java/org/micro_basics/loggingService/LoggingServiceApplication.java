@@ -18,14 +18,12 @@ public class LoggingServiceApplication {
     public static void main(String[] args) {
         int port = Integer.parseInt(System.getenv("SERVICE_PORT"));
         String name = System.getenv("SERVICE_NAME");
-        String id = System.getenv("SERVICE_ID");
         String consulUrl = System.getenv("CONSUL_URL");
 
         System.out.println("Service name is " + name);
-        System.out.println("Service id is " + id);
         System.out.println("Service port is " + port);
 
-        LoggingServiceController service = new LoggingServiceController(name, id, port, consulUrl);
+        LoggingServiceController service = new LoggingServiceController(name, port, consulUrl);
         service.run();
 
         Utils.waitDockerSignal();
@@ -36,8 +34,8 @@ public class LoggingServiceApplication {
 
 class LoggingServiceController  extends ServiceBase {
     String mapName;
-    LoggingServiceController(String name, String id, int port, String consulUrl)  {
-        super(name, id, port, consulUrl);
+    LoggingServiceController(String name, int port, String consulUrl)  {
+        super(name, port, consulUrl);
         setHttpHandler("/", new RequestHandler());
         System.out.println("Service " + serviceId + " is created");
 

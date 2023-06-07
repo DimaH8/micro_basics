@@ -44,7 +44,6 @@ services:
     container_name: facade-service
     environment:
       - SERVICE_NAME=facade-service
-      - SERVICE_ID=facade-service1
       - SERVICE_PORT=8001
       - CONSUL_URL=192.168.0.10:8500
     networks:
@@ -57,82 +56,30 @@ services:
       consul-add-kv-data:
         condition: service_completed_successfully
 
-  messages-service1:
+  messages-service:
     image: messages-service:1.0
-    container_name: messages-service1
     environment:
       - SERVICE_NAME=messages-service
-      - SERVICE_ID=messages-service1
       - SERVICE_PORT=8003
       - CONSUL_URL=192.168.0.10:8500
     networks:
       - service-network
     deploy:
-      replicas: 1
+      replicas: 2
     depends_on:
       consul-add-kv-data:
         condition: service_completed_successfully
 
-  messages-service2:
-    image: messages-service:1.0
-    container_name: messages-service2
-    environment:
-      - SERVICE_NAME=messages-service
-      - SERVICE_ID=messages-service2
-      - SERVICE_PORT=8003
-      - CONSUL_URL=192.168.0.10:8500
-    networks:
-      - service-network
-    deploy:
-      replicas: 1
-    depends_on:
-      consul-add-kv-data:
-        condition: service_completed_successfully
-
-  logging-service1:
+  logging-service:
     image: logging-service:1.0
-    container_name: logging-service1
     environment:
       - SERVICE_NAME=logging-service
-      - SERVICE_ID=logging-service1
       - SERVICE_PORT=8002
       - CONSUL_URL=192.168.0.10:8500
     networks:
       - service-network
     deploy:
-      replicas: 1
-    depends_on:
-      consul-add-kv-data:
-        condition: service_completed_successfully
-
-  logging-service2:
-    image: logging-service:1.0
-    container_name: logging-service2
-    environment:
-      - SERVICE_NAME=logging-service
-      - SERVICE_ID=logging-service2
-      - SERVICE_PORT=8002
-      - CONSUL_URL=192.168.0.10:8500
-    networks:
-      - service-network
-    deploy:
-      replicas: 1
-    depends_on:
-      consul-add-kv-data:
-        condition: service_completed_successfully
-
-  logging-service3:
-    image: logging-service:1.0
-    container_name: logging-service3
-    environment:
-      - SERVICE_NAME=logging-service
-      - SERVICE_ID=logging-service3
-      - SERVICE_PORT=8002
-      - CONSUL_URL=192.168.0.10:8500
-    networks:
-      - service-network
-    deploy:
-      replicas: 1
+      replicas: 3
     depends_on:
       consul-add-kv-data:
         condition: service_completed_successfully
